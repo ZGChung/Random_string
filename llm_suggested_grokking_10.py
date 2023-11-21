@@ -113,7 +113,7 @@ examples = '''
 
 # Split examples into individual lines
 lines = examples.split("\n")
-lines = lines[:100]
+lines = lines[:10]
 
 # Split lines into individual digits
 digits = [list(map(int, line)) for line in lines]
@@ -162,11 +162,9 @@ epoch_list, loss_list, acc_list = [], [], []
 
 
 # Training loop
-max_epoch = 500
+max_epoch = 1000000
 early_stop_count = 0
-tmp_max = 0
 es_mark = 30
-min_epoch = 200
 for epoch in range(max_epoch):
     for inputs in dataloader:
         optimizer.zero_grad()
@@ -199,7 +197,6 @@ for epoch in range(max_epoch):
                 sub_d += digits
                 sub_d += ' '
         acc = hit/total_mark
-        tmp_max = max(tmp_max, acc)
         epoch_list.append(epoch+1)
         loss_list.append(loss.item())
         acc_list.append(acc)
@@ -207,7 +204,7 @@ for epoch in range(max_epoch):
         print(f'Epoch [{epoch + 1}/max_epoch], Loss: {loss.item():.4f}, Acc: {acc}')
 
         # early stop
-        if tmp_max == acc and epoch > min_epoch:
+        if float(acc) == 1.0:
             early_stop_count += 1
         if early_stop_count == es_mark:
             print("Early stop triggered.")
@@ -243,7 +240,7 @@ ax2.tick_params('y', colors='r')
 
 # Set the title and show the plot
 plt.title('Loss and Accuracy')
-plt.savefig('lstm_loss_acc_grokking.png')
+plt.savefig('lstm_loss_acc_grokking_10.png')
 
 
 
