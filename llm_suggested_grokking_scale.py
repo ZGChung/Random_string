@@ -108,116 +108,101 @@ examples = '''
 10110011001010010100000100101001110001010110100110010010101110010110000111101001
 01000101011110011001111101011001011010011111100110111010101110010010011111111001
 '''
-
-
-
 # Split examples into individual lines
-lines = examples.split("\n")
-lines = lines[:10]
+lines_full = examples.split("\n")
 
-# Split lines into individual digits
-digits = [list(map(int, line)) for line in lines]
-
-# Find the maximum length of digits
-max_length = max(len(line) for line in digits)
-
-# Pad lines with zeros if necessary
-digits = [line + [0] * (max_length - len(line)) for line in digits]
-
-# Reshape examples to have batch size and sequence length
-batch_size = len(digits)
-sequence_length = max_length // 4
-examples = torch.tensor(digits, dtype=torch.float32).view(batch_size, sequence_length, 4)
-
-# Define the LSTM model
-class LSTMModel(nn.Module):
-    def __init__(self, input_size, hidden_size):
-        super(LSTMModel, self).__init__()
-        self.hidden_size = hidden_size
-        self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
-        self.fc = nn.Linear(hidden_size, input_size)
-
-    def forward(self, x):
-        output, _ = self.lstm(x)
-        output = self.fc(output)
-        return output
-
-# Set the input and hidden size
-input_size = 4
-hidden_size = 4
-
-# Create the LSTM model instance
-model = LSTMModel(input_size, hidden_size)
-
-# Define the loss function and optimizer
-criterion = nn.MSELoss()
-optimizer = optim.SGD(model.parameters(), lr=0.01)
-
-# Create a DataLoader for the examples
-dataset = TensorDataset(examples)
-dataloader = DataLoader(dataset, batch_size=1)
-
+hidden_size_list = [4, 8, 12, 16, 20, 24, 28, 32]
 # plot lists
-epoch_list, loss_list, acc_list = [], [], []
+size_list, loss_list, acc_list = [], [], []
+
+for size in hidden_size_list:
+    lines = lines_full[:size]
+
+    # Split lines into individual digits
+    digits = [list(map(int, line)) for line in lines]
+
+    # Find the maximum length of digits
+    max_length = max(len(line) for line in digits)
+
+    # Pad lines with zeros if necessary
+    digits = [line + [0] * (max_length - len(line)) for line in digits]
+
+    # Reshape examples to have batch size and sequence length
+    batch_size = len(digits)
+    sequence_length = max_length // 4
+    examples = torch.tensor(digits, dtype=torch.float32).view(batch_size, sequence_length, 4)
+
+    # Define the LSTM model
+    class LSTMModel(nn.Module):
+        def __init__(self, input_size, hidden_size):
+            super(LSTMModel, self).__init__()
+            self.hidden_size = hidden_size
+            self.lstm = nn.LSTM(input_size, hidden_size, batch_first=True)
+            self.fc = nn.Linear(hidden_size, input_size)
+
+        def forward(self, x):
+            output, _ = self.lstm(x)
+            output = self.fc(output)
+            return output
+
+    # Set the input and hidden size
+    input_size = 4
+    hidden_size = size
+
+    # Create the LSTM model instance
+    model = LSTMModel(input_size, hidden_size)
+
+    # Define the loss function and optimizer
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(model.parameters(), lr=0.01)
+
+    # Create a DataLoader for the examples
+    dataset = TensorDataset(examples)
+    dataloader = DataLoader(dataset, batch_size=1)
 
 
-# Training loop
-max_epoch = 1000000
-early_stop_count = 0
-es_mark = 30
-for epoch in range(max_epoch):
-    for inputs in dataloader:
-        optimizer.zero_grad()
-        outputs = model(inputs[0])
-        loss = criterion(outputs, inputs[0])
-        loss.backward()
-        optimizer.step()
+    max_epoch = 50
+    # Training loop
+    for epoch in range(max_epoch):
+        for inputs in dataloader:
+            optimizer.zero_grad()
+            outputs = model(inputs[0])
+            loss = criterion(outputs, inputs[0])
+            loss.backward()
+            optimizer.step()
 
-    if (epoch + 1) % 10 == 0:
-        # eval
-        # Generate predictions
-        with torch.no_grad():
-            predictions = model(examples)
+        if epoch == max_epoch-1:
+            # eval
+            # Generate predictions
+            with torch.no_grad():
+                predictions = model(examples)
 
-        # Apply thresholding to convert predictions to binary values
-        threshold = 0.5
-        binary_predictions = (predictions >= threshold).int()
-        res = binary_predictions.squeeze().tolist()
-        total_mark = 5*len(lines)
-        hit = 0
-        for r in res:
-            sub_d = ""
-            for index, s in enumerate(r):
-                if (index+1)%4==0:
-                    if "".join([str(i) for i in s]) == '1001':
-                        hit += 1
-                    digits = "*"+"".join([str(i) for i in s])+"*"
-                else:
-                    digits = "".join([str(i) for i in s])
-                sub_d += digits
-                sub_d += ' '
-        acc = hit/total_mark
-        epoch_list.append(epoch+1)
-        loss_list.append(loss.item())
-        acc_list.append(acc)
-
-        print(f'Epoch [{epoch + 1}/max_epoch], Loss: {loss.item():.4f}, Acc: {acc}')
-
-        # early stop
-        if float(acc) == 1.0:
-            early_stop_count += 1
-        if early_stop_count == es_mark:
-            print("Early stop triggered.")
-            break
-
-        
-        
-
-        
-# plot epoch_list, loss_list, acc_list
-print(epoch_list)
-print(loss_list)
-print(acc_list)
+            # Apply thresholding to convert predictions to binary values
+            threshold = 0.5
+            binary_predictions = (predictions >= threshold).int()
+            res = binary_predictions.squeeze().tolist()
+            total_mark = 5*len(lines)
+            hit = 0
+            for r in res:
+                sub_d = ""
+                for index, s in enumerate(r):
+                    if (index+1)%4==0:
+                        if "".join([str(i) for i in s]) == '1001':
+                            hit += 1
+                        digits = "*"+"".join([str(i) for i in s])+"*"
+                    else:
+                        digits = "".join([str(i) for i in s])
+                    sub_d += digits
+                    sub_d += ' '
+            acc = hit/total_mark
+            size_list.append(size)
+            loss_list.append(loss.item())
+            acc_list.append(acc)
+            
+    # plot epoch_list, loss_list, acc_list
+    print(size_list)
+    print(loss_list)
+    print(acc_list)
 
 import matplotlib.pyplot as plt
 
@@ -225,8 +210,8 @@ import matplotlib.pyplot as plt
 fig, ax1 = plt.subplots()
 
 # Plot the first dataset (loss_list)
-ax1.plot(epoch_list, loss_list, 'b-')
-ax1.set_xlabel('Epoch')
+ax1.plot(size_list, loss_list, 'b-')
+ax1.set_xlabel('Size of hidden layer')
 ax1.set_ylabel('Loss', color='b')
 ax1.tick_params('y', colors='b')
 
@@ -234,13 +219,12 @@ ax1.tick_params('y', colors='b')
 ax2 = ax1.twinx()
 
 # Plot the second dataset (acc_list)
-ax2.plot(epoch_list, acc_list, 'r-')
+ax2.plot(size_list, acc_list, 'r-')
 ax2.set_ylabel('Accuracy', color='r')
 ax2.tick_params('y', colors='r')
 
 # Set the title and show the plot
-plt.title('Loss and Accuracy')
-plt.savefig('lstm_loss_acc_grokking_10.png')
-
+plt.title('Loss and Accuracy with different size of trianing data')
+plt.savefig('lstm_loss_acc_diff_hidden_layers.png')
 
 
